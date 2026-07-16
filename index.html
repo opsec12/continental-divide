@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Continental Divide — A Colonial America Strategy Game</title>
+<style>
+:root {
+  --bg: #191410;
+  --panel: #241c16;
+  --panel-2: #2c2119;
+  --border: #4a3a2a;
+  --gold: #d9a441;
+  --text: #ecdfc8;
+  --muted: #9c8a6f;
+  --danger: #b5433a;
+  --ok: #5f9463;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Georgia", "Iowan Old Style", serif;
+}
+
+h1, h2 { font-family: "Trajan Pro", "Cinzel", "Georgia", serif; letter-spacing: 0.5px; }
+
+.hidden { display: none !important; }
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.start-card {
+  max-width: 560px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px;
+  text-align: center;
+}
+
+.start-card h1 { font-size: 2.4em; color: var(--gold); margin-bottom: 4px; }
+.tagline { color: var(--muted); font-style: italic; margin-top: 0; }
+.instructions { margin-top: 24px; }
+.hint { color: var(--muted); font-size: 0.9em; margin-top: 24px; }
+
+.kingdom-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.kingdom-card {
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  background: var(--panel-2);
+  transition: transform 0.1s ease, border-color 0.1s ease;
+  text-align: left;
+}
+
+.kingdom-card:hover { transform: translateY(-2px); border-color: var(--gold); }
+
+.kingdom-card .swatch {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.kingdom-card h3 { margin: 0 0 4px 0; }
+.kingdom-card p { margin: 0; color: var(--muted); font-size: 0.85em; }
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.brand { font-size: 1.3em; color: var(--gold); font-weight: bold; }
+
+#status-strip { flex: 1; display: flex; gap: 24px; align-items: center; font-size: 0.95em; flex-wrap: wrap; }
+#status-strip .stat { color: var(--muted); }
+#status-strip .stat b { color: var(--text); }
+
+#end-turn-btn, #restart-btn, .action-btn {
+  background: var(--gold);
+  color: #241c16;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 18px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+#end-turn-btn:hover, #restart-btn:hover, .action-btn:hover { filter: brightness(1.1); }
+.action-btn.attack { background: var(--danger); color: white; }
+.action-btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  grid-template-rows: auto auto;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+#map-panel {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+#map-svg { width: 100%; height: auto; min-height: 560px; }
+
+.territory-node { cursor: pointer; }
+.territory-node circle.base { stroke: #000; stroke-width: 1.5; }
+.territory-node.selected circle.base { stroke: var(--gold); stroke-width: 3; }
+.territory-node text.name { font-size: 11px; fill: var(--text); font-family: Georgia, serif; }
+.territory-node text.troops { font-size: 10px; fill: #fff; font-weight: bold; }
+.territory-node text.train { font-size: 9px; fill: var(--gold); font-weight: bold; }
+
+.map-edge { stroke: #4a3a2a; stroke-width: 1.5; opacity: 0.6; }
+
+#bottom-bar {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#bottom-bar .panel { margin-bottom: 0; }
+#territory-detail { flex: 1.6; min-width: 320px; }
+#generals-panel { flex: 1; min-width: 260px; }
+
+#log-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.panel h2 { margin-top: 0; font-size: 1.05em; color: var(--gold); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+
+.muted { color: var(--muted); font-size: 0.9em; }
+
+.detail-row { display: flex; justify-content: space-between; margin: 6px 0; font-size: 0.92em; }
+.detail-row b { color: var(--gold); }
+.detail-row b.legendary-name { color: var(--gold); }
+
+.recruit-controls { display: flex; gap: 8px; margin: 10px 0; flex-wrap: wrap; }
+
+.general-select { width: 100%; padding: 6px; margin: 8px 0; background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+
+.adjacent-list { margin-top: 10px; }
+.adjacent-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; margin: 4px 0; background: var(--panel-2); border-radius: 4px; font-size: 0.9em;
+  flex-wrap: wrap; gap: 6px;
+}
+
+.move-controls { display: flex; gap: 6px; align-items: center; }
+.move-input {
+  width: 56px; padding: 4px; background: var(--panel); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; font-family: inherit;
+}
+
+.general-card {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; margin: 4px 0; border-radius: 4px; background: var(--panel-2); font-size: 0.85em;
+}
+.general-card .g-loc { color: var(--muted); }
+.general-card.captured { border: 1px dashed var(--gold); }
+.general-card.legendary { border-left: 3px solid var(--gold); }
+
+#log-panel .panel-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#log-list { flex: 1; min-height: 200px; overflow-y: auto; font-size: 0.85em; }
+#log-list p { margin: 4px 0; color: var(--muted); border-left: 2px solid var(--border); padding-left: 8px; }
+#log-list p.important { color: var(--gold); border-left-color: var(--gold); }
+
+#end-screen .start-card h1 { color: var(--gold); }
+
+@media (max-width: 1080px) {
+  #layout { grid-template-columns: 1fr; grid-template-rows: auto auto auto; max-width: 900px; }
+  #map-panel { grid-column: 1; grid-row: 1; }
+  #map-svg { min-height: 0; }
+  #bottom-bar { grid-column: 1; grid-row: 2; flex-direction: column; }
+  #log-panel { grid-column: 1; grid-row: 3; }
+  .kingdom-picker { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Start screen -->
+<div id="start-screen" class="screen">
+  <div class="start-card">
+    <h1>⚔ Continental Divide</h1>
+    <p class="tagline">Five colonial powers. Thirty leaders. One continent.</p>
+    <p class="instructions">Choose your nation to begin the conquest.</p>
+    <div id="kingdom-picker" class="kingdom-picker"></div>
+    <p class="hint">Recruit and train troops, command legendary leaders, and conquer every territory before time runs out. Every power is out for itself — expect to be attacked.</p>
+  </div>
+</div>
+
+<!-- Game screen -->
+<div id="game-screen" class="screen hidden">
+  <header id="topbar">
+    <div class="brand">⚔ Continental Divide</div>
+    <div id="status-strip"></div>
+    <button id="end-turn-btn">End Turn ▶</button>
+  </header>
+
+  <main id="layout">
+    <section id="map-panel">
+      <svg id="map-svg" viewBox="0 0 520 500" preserveAspectRatio="xMidYMid meet"></svg>
+    </section>
+
+    <div id="bottom-bar">
+      <div id="territory-detail" class="panel">
+        <h2>Select a territory</h2>
+        <p class="muted">Click any territory on the map to inspect it, recruit or train troops, assign a leader, move troops to a neighboring territory you own, or attack a rival.</p>
+      </div>
+
+      <div id="generals-panel" class="panel">
+        <h2>Your Leaders</h2>
+        <div id="generals-list"></div>
+      </div>
+    </div>
+
+    <aside id="log-panel" class="panel">
+      <h2>Campaign Log</h2>
+      <div id="log-list"></div>
+    </aside>
+  </main>
+</div>
+
+<!-- End screen -->
+<div id="end-screen" class="screen hidden">
+  <div class="start-card">
+    <h1 id="end-title">Victory!</h1>
+    <p id="end-message"></p>
+    <button id="restart-btn">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* ======================================================================
+   CONTINENTAL DIVIDE — a simple Colonial-America-inspired turn-based conquest game
+   Five colonial powers. Thirty leaders. One continent.
+   ====================================================================== */
+
+/* ---------------------------- DATA ----------------------------------- */
+
+const KINGDOMS = [
+  { id: "britain",  name: "British America",      color: "#a1332b", capital: "boston",       blurb: "The Crown's thirteen colonies, ambitious and growing." },
+  { id: "france",   name: "New France",           color: "#3f5c8a", capital: "quebec",       blurb: "Fur trade and faith along the St. Lawrence." },
+  { id: "spain",    name: "New Spain",            color: "#a8863a", capital: "staugustine",  blurb: "Missions and garrisons guarding La Florida." },
+  { id: "holland",  name: "New Netherland",       color: "#e0792e", capital: "newamsterdam", blurb: "Merchant traders of the Hudson River." },
+  { id: "iroquois", name: "Iroquois Confederacy", color: "#6b4c8a", capital: "onondaga",     blurb: "The Haudenosaunee, masters of the eastern woodlands." },
+];
+
+// id, name, kingdom, atk, def, legendary
+const GENERALS_RAW = [
+  // British America
+  ["gwashington", "George Washington",  "britain", 9, 7, true],
+  ["bfranklin",   "Benjamin Franklin",  "britain", 4, 9, true],
+  ["fmarion",     "Francis Marion",     "britain", 8, 6, true],
+  ["iputnam",     "Israel Putnam",      "britain", 8, 6, false],
+  ["eallen",      "Ethan Allen",        "britain", 8, 5, false],
+  ["ngreene",     "Nathanael Greene",   "britain", 7, 8, false],
+  // New France
+  ["frontenac",   "Comte de Frontenac",          "france", 8, 6, true],
+  ["montcalm",    "Marquis de Montcalm",         "france", 8, 7, false],
+  ["champlain",   "Samuel de Champlain",         "france", 5, 7, false],
+  ["iberville",   "Pierre Le Moyne d'Iberville", "france", 8, 5, false],
+  ["talon",       "Jean Talon",                  "france", 4, 8, false],
+  ["cadillac",    "Antoine de la Mothe Cadillac","france", 6, 6, false],
+  // New Spain
+  ["galvez",       "Bernardo de Gálvez",         "spain", 8, 6, true],
+  ["menendez",     "Pedro Menéndez de Avilés",   "spain", 7, 7, false],
+  ["desoto",       "Hernando de Soto",           "spain", 8, 5, false],
+  ["poncedeleon",  "Juan Ponce de León",         "spain", 6, 6, false],
+  ["cabezadevaca", "Álvar Núñez Cabeza de Vaca", "spain", 4, 8, false],
+  ["devargas",     "Diego de Vargas",            "spain", 7, 6, false],
+  // New Netherland
+  ["stuyvesant",   "Peter Stuyvesant",       "holland", 7, 8, true],
+  ["minuit",       "Peter Minuit",           "holland", 5, 6, false],
+  ["kieft",        "Willem Kieft",           "holland", 6, 5, false],
+  ["vanderdonck",  "Adriaen van der Donck",  "holland", 4, 7, false],
+  ["devries",      "David Pietersz de Vries","holland", 6, 6, false],
+  ["vantienhoven", "Cornelis van Tienhoven", "holland", 5, 6, false],
+  // Iroquois Confederacy
+  ["jbrant",      "Joseph Brant",   "iroquois", 9, 6, true],
+  ["cornplanter", "Cornplanter",    "iroquois", 7, 7, false],
+  ["redjacket",   "Red Jacket",     "iroquois", 5, 7, false],
+  ["canasatego",  "Canasatego",     "iroquois", 4, 8, false],
+  ["tadodaho",    "Tadodaho",       "iroquois", 6, 6, false],
+  ["guyasuta",    "Guyasuta",       "iroquois", 7, 6, false],
+];
+
+// Territory layout: id, name, x, y (SVG coords), starting owner (kingdom id or null), starting troops
+const TERRITORIES_RAW = [
+  ["quebec",        "Quebec",         320, 30,  "france",   45],
+  ["montreal",      "Montreal",       290, 90,  "france",   25],
+  ["fortdetroit",   "Fort Detroit",   150, 140, null,       18],
+  ["onondaga",       "Onondaga",       280, 150, "iroquois", 45],
+  ["senecacountry", "Seneca Country", 190, 190, "iroquois", 25],
+  ["fortorange",    "Fort Orange",    330, 210, "holland",  25],
+  ["newamsterdam",  "New Amsterdam",  370, 290, "holland",  45],
+  ["boston",        "Boston",         440, 200, "britain",  45],
+  ["philadelphia",  "Philadelphia",   350, 340, null,       20],
+  ["fortduquesne",  "Fort Duquesne",  200, 320, null,       16],
+  ["jamestown",     "Jamestown",      320, 400, "britain",  25],
+  ["charleston",    "Charleston",     290, 450, null,       14],
+  ["staugustine",   "St. Augustine",  250, 490, "spain",    45],
+  ["santafe",       "Santa Fe",       40,  430, "spain",    25],
+];
+
+const EDGES = [
+  ["boston", "newamsterdam"], ["boston", "philadelphia"], ["boston", "jamestown"],
+  ["newamsterdam", "fortorange"], ["newamsterdam", "philadelphia"],
+  ["fortorange", "onondaga"], ["fortorange", "senecacountry"],
+  ["onondaga", "senecacountry"], ["onondaga", "fortdetroit"], ["onondaga", "montreal"],
+  ["montreal", "quebec"], ["montreal", "fortdetroit"],
+  ["senecacountry", "fortdetroit"],
+  ["fortdetroit", "fortduquesne"],
+  ["fortduquesne", "jamestown"], ["fortduquesne", "philadelphia"], ["fortduquesne", "charleston"],
+  ["jamestown", "philadelphia"], ["jamestown", "charleston"],
+  ["charleston", "staugustine"],
+  ["staugustine", "santafe"],
+];
+
+const GOLD_PER_TERRITORY = 20;
+const TROOP_COST = 2;
+const STARTING_GOLD = 150;
+
+const MAX_TRAINING = 5;
+const TRAINING_BONUS_PER_LEVEL = 0.08; // +8% combat effectiveness per level
+function trainingCost(level) { return (level + 1) * 40; }
+
+const LEGENDARY_BONUS = 0.15; // legendary leaders fight 15% harder on top of their stats
+
+const BASE_MAX_TURNS = 40;
+const TURNS_PER_EXTRA_PROVINCE = 3; // every territory you hold beyond your starting 2 buys you more time
+const STARTING_PROVINCES_PER_KINGDOM = 2;
+
+/* ---------------------------- STATE ------------------------------------ */
+
+let state = null;
+
+function kingdomOf(id) { return KINGDOMS.find(k => k.id === id); }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function initState(playerKingdomId) {
+  const territories = {};
+  TERRITORIES_RAW.forEach(([id, name, x, y, owner, troops]) => {
+    const neighbors = EDGES.filter(e => e.includes(id)).map(e => e[0] === id ? e[1] : e[0]);
+    territories[id] = { id, name, x, y, owner, troops, generalId: null, neighbors, training: 0 };
+  });
+
+  const generals = {};
+  GENERALS_RAW.forEach(([id, name, kingdom, atk, def, legendary]) => {
+    generals[id] = { id, name, kingdom, homeKingdom: kingdom, atk, def, legendary: !!legendary, location: null, captured: false };
+  });
+
+  // Assign one leader to each starting territory (capital gets the strongest by atk+def)
+  KINGDOMS.forEach(k => {
+    const myGenerals = Object.values(generals).filter(g => g.kingdom === k.id)
+      .sort((a, b) => (b.atk + b.def) - (a.atk + a.def));
+    const myTerritories = Object.values(territories).filter(t => t.owner === k.id);
+    myTerritories.forEach((t, i) => {
+      if (myGenerals[i]) {
+        myGenerals[i].location = t.id;
+        t.generalId = myGenerals[i].id;
+      }
+    });
+  });
+
+  const gold = {};
+  KINGDOMS.forEach(k => gold[k.id] = STARTING_GOLD);
+
+  state = {
+    playerKingdom: playerKingdomId,
+    turn: 1,
+    territories,
+    generals,
+    gold,
+    selectedTerritory: null,
+    gameOver: false,
+  };
+}
+
+function aliveKingdoms() {
+  return KINGDOMS.filter(k => Object.values(state.territories).some(t => t.owner === k.id));
+}
+
+function territoriesOf(kingdomId) {
+  return Object.values(state.territories).filter(t => t.owner === kingdomId);
+}
+
+function computeMaxTurns() {
+  const playerProvinces = territoriesOf(state.playerKingdom).length;
+  const bonus = Math.max(0, playerProvinces - STARTING_PROVINCES_PER_KINGDOM) * TURNS_PER_EXTRA_PROVINCE;
+  return BASE_MAX_TURNS + bonus;
+}
+
+/* ---------------------------- TRAINING ----------------------------------- */
+
+function upgradeTraining(territoryId, spenderKingdomId) {
+  const t = state.territories[territoryId];
+  if (!t || t.owner !== spenderKingdomId) return false;
+  const level = t.training || 0;
+  if (level >= MAX_TRAINING) return false;
+  const cost = trainingCost(level);
+  if (state.gold[spenderKingdomId] < cost) return false;
+  state.gold[spenderKingdomId] -= cost;
+  t.training = level + 1;
+  return true;
+}
+
+function playerUpgradeTraining(territoryId) {
+  const ok = upgradeTraining(territoryId, state.playerKingdom);
+  if (ok) {
+    log(`${state.territories[territoryId].name}'s militia trains and re-equips (level ${state.territories[territoryId].training}).`, false);
+    render();
+  }
+}
+
+/* ---------------------------- MOVEMENT ----------------------------------- */
+
+function moveTroops(fromId, toId, amount) {
+  const from = state.territories[fromId];
+  const to = state.territories[toId];
+  if (!from || !to) return;
+  if (from.owner !== state.playerKingdom || to.owner !== state.playerKingdom) return;
+  amount = Math.floor(Number(amount) || 0);
+  amount = clamp(amount, 0, from.troops);
+  if (amount <= 0) return;
+  from.troops -= amount;
+  to.troops += amount;
+  log(`${amount} troops march from ${from.name} to ${to.name}.`, false);
+  render();
+}
+
+/* ---------------------------- BATTLE ------------------------------------ */
+
+function rand(a, b) { return a + Math.random() * (b - a); }
+
+function combatMultiplier(general, trainingLevel, statKey) {
+  let bonus = general ? general[statKey] / 20 : 0;
+  if (general && general.legendary) bonus *= (1 + LEGENDARY_BONUS);
+  return (1 + bonus) * (1 + (trainingLevel || 0) * TRAINING_BONUS_PER_LEVEL);
+}
+
+function attack(fromId, toId) {
+  const from = state.territories[fromId];
+  const to = state.territories[toId];
+  if (!from || !to) return;
+  if (from.owner !== state.playerKingdom && from.owner === null) return;
+  if (from.troops < 2) { log("Not enough troops to attack with.", false); return; }
+
+  resolveBattle(fromId, toId, from.owner);
+  render();
+  checkGameOver();
+}
+
+function resolveBattle(fromId, toId, attackerKingdomId) {
+  const from = state.territories[fromId];
+  const to = state.territories[toId];
+  const attackerGeneral = from.generalId ? state.generals[from.generalId] : null;
+  const defenderGeneral = to.generalId ? state.generals[to.generalId] : null;
+
+  const attackerTroops = from.troops;
+  const defenderTroops = to.troops;
+
+  const atkMult = combatMultiplier(attackerGeneral, from.training, "atk");
+  const defMult = combatMultiplier(defenderGeneral, to.training, "def");
+  const terrainBonus = to.owner ? 1.1 : 1.0; // defended territory holds a slight edge; unclaimed land does not
+
+  const attackerRoll = attackerTroops * atkMult * rand(0.85, 1.15);
+  const defenderRoll = defenderTroops * defMult * terrainBonus * rand(0.85, 1.15);
+
+  const attackerName = kingdomOf(attackerKingdomId).name;
+  const previousOwnerId = to.owner;
+  const defenderName = previousOwnerId ? kingdomOf(previousOwnerId).name : "the frontier";
+
+  if (attackerRoll > defenderRoll) {
+    // Attacker wins
+    const survivors = Math.max(1, Math.round(attackerTroops * (attackerRoll - defenderRoll) / attackerRoll));
+    to.owner = attackerKingdomId;
+    to.troops = survivors;
+    to.training = 0; // a freshly conquered garrison starts untrained
+    from.troops = 0;
+
+    // Attacking leader moves into the captured territory
+    if (attackerGeneral) {
+      attackerGeneral.location = to.id;
+      from.generalId = null;
+      to.generalId = attackerGeneral.id;
+    } else {
+      to.generalId = null;
+    }
+
+    // Defending leader: captured! joins the victor, unless their homeland still stands (50/50 chance to flee home)
+    if (defenderGeneral) {
+      const stillHasHome = previousOwnerId && territoriesOf(previousOwnerId).length > 1;
+      if (stillHasHome && Math.random() < 0.5) {
+        defenderGeneral.location = null; // retreats to reserve
+        log(`${defenderGeneral.name} narrowly escapes the fall of ${to.name} and retreats.`, true);
+      } else {
+        defenderGeneral.kingdom = attackerKingdomId;
+        defenderGeneral.captured = true;
+        defenderGeneral.location = null; // joins victor's reserve
+        log(`${defenderGeneral.name} is captured and pledges service to ${attackerName}!`, true);
+      }
+    }
+
+    log(`${attackerName} storms ${to.name} and seizes it from ${defenderName}. (${survivors} troops hold the territory)`, true);
+  } else {
+    // Defender wins
+    const survivors = Math.max(1, Math.round(defenderTroops * (defenderRoll - attackerRoll) / defenderRoll));
+    to.troops = survivors;
+    from.troops = 0;
+    if (attackerGeneral) {
+      log(`${attackerGeneral.name}'s assault on ${to.name} is repelled — the force is broken and ${attackerGeneral.name} retreats to ${from.name}.`, true);
+    } else {
+      log(`${attackerName}'s assault on ${to.name} is repelled by ${defenderName}.`, true);
+    }
+  }
+}
+
+/* ---------------------------- ECONOMY / AI ------------------------------ */
+
+function collectIncome() {
+  KINGDOMS.forEach(k => {
+    const count = territoriesOf(k.id).length;
+    state.gold[k.id] += count * GOLD_PER_TERRITORY;
+  });
+}
+
+function aiTakeTurn(kingdomId) {
+  const myTerritories = territoriesOf(kingdomId);
+  if (myTerritories.length === 0) return;
+
+  // Recruit: about half of gold on troops at the weakest territory
+  const recruitBudget = Math.floor(state.gold[kingdomId] * 0.5);
+  const spendTarget = [...myTerritories].sort((a, b) => a.troops - b.troops)[0];
+  if (spendTarget && recruitBudget >= TROOP_COST) {
+    const troopsBought = Math.floor(recruitBudget / TROOP_COST);
+    spendTarget.troops += troopsBought;
+    state.gold[kingdomId] -= troopsBought * TROOP_COST;
+  }
+
+  // Train & equip: spend leftover gold upgrading the best-garrisoned territory, if affordable
+  const trainable = [...myTerritories].filter(t => (t.training || 0) < MAX_TRAINING).sort((a, b) => b.troops - a.troops)[0];
+  if (trainable) {
+    const cost = trainingCost(trainable.training || 0);
+    if (state.gold[kingdomId] >= cost) upgradeTraining(trainable.id, kingdomId);
+  }
+
+  // Assign any reserve leaders to territories that lack one
+  const reserveGenerals = Object.values(state.generals).filter(g => g.kingdom === kingdomId && g.location === null);
+  const bare = myTerritories.filter(t => !t.generalId);
+  bare.forEach(t => {
+    const g = reserveGenerals.pop();
+    if (g) { g.location = t.id; t.generalId = g.id; }
+  });
+
+  // Attack: each territory with a healthy garrison tries the weakest neighbor — friend or foe, everyone is fair game
+  myTerritories.forEach(t => {
+    if (t.troops < 12) return;
+    const targets = t.neighbors
+      .map(id => state.territories[id])
+      .filter(n => n.owner !== kingdomId);
+    if (targets.length === 0) return;
+    targets.sort((a, b) => a.troops - b.troops);
+    const target = targets[0];
+
+    const attackerGeneral = t.generalId ? state.generals[t.generalId] : null;
+    const defenderGeneral = target.generalId ? state.generals[target.generalId] : null;
+    const estimate = t.troops * combatMultiplier(attackerGeneral, t.training, "atk");
+    const defEstimate = target.troops * combatMultiplier(defenderGeneral, target.training, "def") * (target.owner ? 1.1 : 1.0);
+
+    if (estimate > defEstimate * 0.95) {
+      resolveBattle(t.id, target.id, kingdomId);
+    }
+  });
+}
+
+function endTurn() {
+  if (state.gameOver) return;
+  collectIncome();
+  const others = KINGDOMS.filter(k => k.id !== state.playerKingdom);
+  others.forEach(k => aiTakeTurn(k.id));
+  state.turn += 1;
+  state.selectedTerritory = null;
+  render();
+  checkGameOver();
+}
+
+function checkGameOver() {
+  const playerAlive = territoriesOf(state.playerKingdom).length > 0;
+  const alive = aliveKingdoms();
+
+  if (!playerAlive) {
+    endGame(false, "Your colony has fallen. The continent will be claimed by another power.");
+    return;
+  }
+  if (alive.length === 1 && alive[0].id === state.playerKingdom) {
+    endGame(true, `${kingdomOf(state.playerKingdom).name} has claimed all fourteen territories. The continent is united under your banner!`);
+    return;
+  }
+  if (territoriesOf(state.playerKingdom).length === TERRITORIES_RAW.length) {
+    endGame(true, `${kingdomOf(state.playerKingdom).name} holds every territory. The continent is united under your banner!`);
+    return;
+  }
+
+  const maxTurns = computeMaxTurns();
+  if (state.turn > maxTurns) {
+    const ranked = alive.map(k => ({
+      k,
+      count: territoriesOf(k.id).length,
+      troops: territoriesOf(k.id).reduce((sum, t) => sum + t.troops, 0),
+    })).sort((a, b) => b.count - a.count || b.troops - a.troops);
+    const leader = ranked[0];
+    if (leader.k.id === state.playerKingdom) {
+      endGame(true, `Time's up! With ${leader.count} territories under your banner, ${kingdomOf(state.playerKingdom).name} is declared master of the continent.`);
+    } else {
+      endGame(false, `Time's up! ${leader.k.name} holds the most territories (${leader.count}) and claims the continent. Your ${territoriesOf(state.playerKingdom).length}-territory ${kingdomOf(state.playerKingdom).name} falls short.`);
+    }
+  }
+}
+
+function endGame(victory, message) {
+  state.gameOver = true;
+  document.getElementById("game-screen").classList.add("hidden");
+  document.getElementById("end-screen").classList.remove("hidden");
+  document.getElementById("end-title").textContent = victory ? "Victory!" : "Defeat";
+  document.getElementById("end-title").style.color = victory ? "#d9a441" : "#b5433a";
+  document.getElementById("end-message").textContent = message;
+}
+
+/* ---------------------------- LOGGING ------------------------------------ */
+
+function log(message, important) {
+  const list = document.getElementById("log-list");
+  if (!list) return;
+  const p = document.createElement("p");
+  p.textContent = `Turn ${state.turn}: ${message}`;
+  if (important) p.classList.add("important");
+  list.prepend(p);
+}
+
+/* ---------------------------- RENDER ------------------------------------ */
+
+function render() {
+  renderStatusStrip();
+  renderMap();
+  renderTerritoryDetail();
+  renderGenerals();
+}
+
+function renderStatusStrip() {
+  const strip = document.getElementById("status-strip");
+  const k = kingdomOf(state.playerKingdom);
+  const myCount = territoriesOf(state.playerKingdom).length;
+  const maxTurns = computeMaxTurns();
+  strip.innerHTML = `
+    <span class="stat">Power: <b style="color:${k.color}">${k.name}</b></span>
+    <span class="stat">Turn: <b>${state.turn} / ${maxTurns}</b></span>
+    <span class="stat">Gold: <b>${state.gold[state.playerKingdom]}</b></span>
+    <span class="stat">Territories: <b>${myCount} / ${TERRITORIES_RAW.length}</b></span>
+  `;
+}
+
+function ownerColor(owner) {
+  if (!owner) return "#5a5045";
+  return kingdomOf(owner).color;
+}
+
+function renderMap() {
+  const svg = document.getElementById("map-svg");
+  svg.innerHTML = "";
+  const ns = "http://www.w3.org/2000/svg";
+
+  // edges
+  const drawn = new Set();
+  EDGES.forEach(([a, b]) => {
+    const key = [a, b].sort().join("-");
+    if (drawn.has(key)) return;
+    drawn.add(key);
+    const ta = state.territories[a], tb = state.territories[b];
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", ta.x); line.setAttribute("y1", ta.y);
+    line.setAttribute("x2", tb.x); line.setAttribute("y2", tb.y);
+    line.setAttribute("class", "map-edge");
+    svg.appendChild(line);
+  });
+
+  // nodes
+  Object.values(state.territories).forEach(t => {
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("class", "territory-node" + (state.selectedTerritory === t.id ? " selected" : ""));
+    g.addEventListener("click", () => selectTerritory(t.id));
+
+    const isCapital = KINGDOMS.some(k => k.capital === t.id);
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("class", "base");
+    circle.setAttribute("cx", t.x);
+    circle.setAttribute("cy", t.y);
+    circle.setAttribute("r", isCapital ? 20 : 15);
+    circle.setAttribute("fill", ownerColor(t.owner));
+    g.appendChild(circle);
+
+    if (isCapital) {
+      const star = document.createElementNS(ns, "circle");
+      star.setAttribute("cx", t.x); star.setAttribute("cy", t.y);
+      star.setAttribute("r", 4); star.setAttribute("fill", "#f2e6c9");
+      g.appendChild(star);
+    }
+
+    const name = document.createElementNS(ns, "text");
+    name.setAttribute("class", "name");
+    name.setAttribute("x", t.x);
+    name.setAttribute("y", t.y - (isCapital ? 26 : 21));
+    name.setAttribute("text-anchor", "middle");
+    name.textContent = t.name;
+    g.appendChild(name);
+
+    const troops = document.createElementNS(ns, "text");
+    troops.setAttribute("class", "troops");
+    troops.setAttribute("x", t.x);
+    troops.setAttribute("y", t.y + 4);
+    troops.setAttribute("text-anchor", "middle");
+    troops.textContent = t.troops;
+    g.appendChild(troops);
+
+    if (t.training > 0) {
+      const tr = document.createElementNS(ns, "text");
+      tr.setAttribute("class", "train");
+      tr.setAttribute("x", t.x);
+      tr.setAttribute("y", t.y + (isCapital ? 32 : 27));
+      tr.setAttribute("text-anchor", "middle");
+      tr.textContent = "⚙".repeat(Math.min(t.training, 3)) + (t.training > 3 ? "+" : "");
+      g.appendChild(tr);
+    }
+
+    svg.appendChild(g);
+  });
+}
+
+function selectTerritory(id) {
+  state.selectedTerritory = id;
+  render();
+}
+
+function renderTerritoryDetail() {
+  const panel = document.getElementById("territory-detail");
+  const id = state.selectedTerritory;
+  if (!id) {
+    panel.innerHTML = `<h2>Select a territory</h2><p class="muted">Click any territory on the map to inspect it, recruit or train troops, assign a leader, move troops to a neighboring territory you own, or attack a rival.</p>`;
+    return;
+  }
+  const t = state.territories[id];
+  const isMine = t.owner === state.playerKingdom;
+  const generalObj = t.generalId ? state.generals[t.generalId] : null;
+  const generalName = generalObj ? generalObj.name + (generalObj.legendary ? " ★" : "") : "None stationed";
+  const trLevel = t.training || 0;
+
+  let html = `<h2>${t.name}</h2>`;
+  html += `<div class="detail-row"><span>Owner</span><b style="color:${ownerColor(t.owner)}">${t.owner ? kingdomOf(t.owner).name : "Unclaimed"}</b></div>`;
+  html += `<div class="detail-row"><span>Troops</span><b>${t.troops}</b></div>`;
+  html += `<div class="detail-row"><span>Leader</span><b class="${generalObj && generalObj.legendary ? "legendary-name" : ""}">${generalName}</b></div>`;
+  html += `<div class="detail-row"><span>Training</span><b>${trLevel} / ${MAX_TRAINING}</b></div>`;
+
+  if (isMine) {
+    const gold = state.gold[state.playerKingdom];
+    const trCost = trainingCost(trLevel);
+    html += `<div class="recruit-controls">
+      <button class="action-btn secondary" data-recruit="10" ${gold < 20 ? "disabled" : ""}>+10 troops (20g)</button>
+      <button class="action-btn secondary" data-recruit="50" ${gold < 100 ? "disabled" : ""}>+50 troops (100g)</button>
+    </div>`;
+    html += `<div class="recruit-controls">
+      <button class="action-btn secondary" data-train="1" ${(trLevel >= MAX_TRAINING || gold < trCost) ? "disabled" : ""}>${trLevel >= MAX_TRAINING ? "Training Maxed" : `Train & Equip (${trCost}g)`}</button>
+    </div>`;
+
+    const reserves = Object.values(state.generals).filter(g => g.kingdom === state.playerKingdom && g.location === null);
+    if (reserves.length > 0) {
+      html += `<select id="general-select" class="general-select">
+        <option value="">-- Assign a leader --</option>
+        ${reserves.map(g => `<option value="${g.id}">${g.legendary ? "★ " : ""}${g.name} (ATK ${g.atk} / DEF ${g.def})</option>`).join("")}
+      </select>`;
+    }
+
+    html += `<div class="adjacent-list"><h3 style="margin:10px 0 6px;font-size:0.95em;color:#d9a441;">Neighboring Territories</h3>`;
+    t.neighbors.forEach(nid => {
+      const n = state.territories[nid];
+      const mineToo = n.owner === state.playerKingdom;
+      if (mineToo) {
+        html += `<div class="adjacent-item">
+          <span>${n.name} — Yours (${n.troops})</span>
+          <span class="move-controls">
+            <input type="number" min="0" max="${t.troops}" value="${Math.max(0, t.troops - 1)}" class="move-input" data-move-input="${n.id}">
+            <button class="action-btn secondary" data-move="${n.id}" ${t.troops < 1 ? "disabled" : ""}>Move</button>
+          </span>
+        </div>`;
+      } else {
+        html += `<div class="adjacent-item">
+          <span>${n.name} — ${n.owner ? kingdomOf(n.owner).name : "Unclaimed"} (${n.troops})</span>
+          <button class="action-btn attack" data-attack="${n.id}" ${t.troops < 2 ? "disabled" : ""}>Attack</button>
+        </div>`;
+      }
+    });
+    html += `</div>`;
+  }
+
+  panel.innerHTML = html;
+
+  if (isMine) {
+    panel.querySelectorAll("[data-recruit]").forEach(btn => {
+      btn.addEventListener("click", () => recruit(id, parseInt(btn.dataset.recruit, 10)));
+    });
+    panel.querySelectorAll("[data-attack]").forEach(btn => {
+      btn.addEventListener("click", () => attack(id, btn.dataset.attack));
+    });
+    panel.querySelectorAll("[data-train]").forEach(btn => {
+      btn.addEventListener("click", () => playerUpgradeTraining(id));
+    });
+    panel.querySelectorAll("[data-move]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const targetId = btn.dataset.move;
+        const input = panel.querySelector(`[data-move-input="${targetId}"]`);
+        const amount = input ? parseInt(input.value, 10) || 0 : 0;
+        moveTroops(id, targetId, amount);
+      });
+    });
+    const select = panel.querySelector("#general-select");
+    if (select) {
+      select.addEventListener("change", () => {
+        if (select.value) assignGeneral(select.value, id);
+      });
+    }
+  }
+}
+
+function recruit(territoryId, amount) {
+  const t = state.territories[territoryId];
+  const cost = amount * TROOP_COST;
+  if (state.gold[state.playerKingdom] < cost) return;
+  state.gold[state.playerKingdom] -= cost;
+  t.troops += amount;
+  render();
+}
+
+function assignGeneral(generalId, territoryId) {
+  const g = state.generals[generalId];
+  const t = state.territories[territoryId];
+  if (t.generalId) {
+    // swap old leader back to reserve
+    state.generals[t.generalId].location = null;
+  }
+  g.location = territoryId;
+  t.generalId = generalId;
+  render();
+}
+
+function renderGenerals() {
+  const list = document.getElementById("generals-list");
+  const mine = Object.values(state.generals).filter(g => g.kingdom === state.playerKingdom)
+    .sort((a, b) => (b.atk + b.def) - (a.atk + a.def));
+  list.innerHTML = mine.map(g => {
+    const loc = g.location ? state.territories[g.location].name : "In reserve";
+    return `<div class="general-card ${g.captured ? "captured" : ""} ${g.legendary ? "legendary" : ""}">
+      <span>${g.legendary ? "★ " : ""}${g.name} <span class="g-loc">(ATK ${g.atk} / DEF ${g.def})</span></span>
+      <span class="g-loc">${loc}</span>
+    </div>`;
+  }).join("");
+}
+
+/* ---------------------------- START / RESTART ---------------------------- */
+
+function renderKingdomPicker() {
+  const picker = document.getElementById("kingdom-picker");
+  picker.innerHTML = KINGDOMS.map(k => `
+    <div class="kingdom-card" data-kingdom="${k.id}">
+      <div class="swatch" style="background:${k.color}"></div>
+      <h3>${k.name}</h3>
+      <p>${k.blurb}</p>
+    </div>
+  `).join("");
+  picker.querySelectorAll(".kingdom-card").forEach(card => {
+    card.addEventListener("click", () => startGame(card.dataset.kingdom));
+  });
+}
+
+function startGame(kingdomId) {
+  initState(kingdomId);
+  document.getElementById("start-screen").classList.add("hidden");
+  document.getElementById("end-screen").classList.add("hidden");
+  document.getElementById("game-screen").classList.remove("hidden");
+  document.getElementById("log-list").innerHTML = "";
+  log(`${kingdomOf(kingdomId).name} makes its move! Conquer the continent.`, true);
+  render();
+}
+
+renderKingdomPicker();
+document.getElementById("end-turn-btn").addEventListener("click", endTurn);
+document.getElementById("restart-btn").addEventListener("click", () => {
+  document.getElementById("end-screen").classList.add("hidden");
+  document.getElementById("start-screen").classList.remove("hidden");
+});
+</script>
+</body>
+</html>
